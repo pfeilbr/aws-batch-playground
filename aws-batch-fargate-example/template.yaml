@@ -4,9 +4,6 @@ Description: >
   aws-batch-fargate-example
 
 Parameters:
-  VpcId:
-    Type: String
-    Default: vpc-2708bf40
 
   SubnetIDs:
     Description: The array of private Subnet IDs for the Subnet group
@@ -79,20 +76,41 @@ Resources:
               - "sts:AssumeRole"
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+      # Policies:
+      #   - PolicyDocument:
+      #       Version: 2012-10-17
+      #       Statement:
+      #         - Effect: Allow
+      #           Action: 
+      #             - 
+      #           Resource: 
+      #             - 
+      
+  BatchJobRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - ecs-tasks.amazonaws.com
+            Action: 
+              - "sts:AssumeRole"
       Policies:
-        - PolicyDocument:
+        - PolicyName: 'batch-job-s3-policy'
+          PolicyDocument:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
                 Action: 
-                  - "elasticfilesystem:ClientMount"
-                  - "elasticfilesystem:ClientWrite"
+                  - "s3:Get*"
+                  - "s3:List*"
                 Resource: 
-                  - !GetAtt BatchFargateEfsFileSystem.Arn
-                Condition:
-                  StringEquals:
-                    "elasticfilesystem:AccessPointArn": !GetAtt BatchFargateEfsAccessPoint.Arn
-          PolicyName: 'batch-execution-efs-policy'
+                  - !Sub 'arn:aws:s3:::*'
+                  - !Sub 'arn:aws:s3:::*/*'
+
 
   MyJobDefinition:
     Type: AWS::Batch::JobDefinition
@@ -102,31 +120,27 @@ Resources:
       PlatformCapabilities: 
         - FARGATE
       ContainerProperties:
-        Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/pythonfroms3:focal'
-        FargatePlatformConfiguration:
-          PlatformVersion: "1.4.0"
+        Image:
+          Fn::Join:
+            - ""
+            - - 137112412989.dkr.ecr.
+              - Ref: AWS::Region
+              - ".amazonaws.com/amazonlinux:latest"
+        Command:
+          - echo
+          - Hello world
         ExecutionRoleArn: !GetAtt BatchExecutionRole.Arn
         JobRoleArn: !GetAtt BatchJobRole.Arn
         ResourceRequirements:
           - Type: "VCPU"
-            Value: "4"
+            Value: "0.25"
           - Type: "MEMORY"
-            Value: "8192"
-        # Volumes:
-        #   - EfsVolumeConfiguration:
-        #       FileSystemId: !Ref BatchFargateEfsFileSystem
-        #       AuthorizationConfig:
-        #         AccessPointId: !Ref BatchFargateEfsAccessPoint
-        #         Iam: "ENABLED"
-        #       RootDirectory: "/"
-        #       TransitEncryption: "ENABLED"
-        #     Name: "efs"
-        # MountPoints:
-        #   - ContainerPath: "/efs"
-        #     SourceVolume: "efs"
+            Value: "512"
 
 Outputs:
-  ALBDNSName:
-    Value: !GetAtt FargateAlb.DNSName
-  HTTPEndpoint:
-    Value: !Sub "http://${FargateAlb.DNSName}"
+  FargateComputeEnvironmentArn:
+    Value: !GetAtt FargateComputeEnvironment.ComputeEnvironmentArn
+  FargateJobQueueArn:
+    Value: !GetAtt FargateJobQueue.JobQueueArn
+  MyJobDefinitionArn:
+    Value: !Ref MyJobDefinition
