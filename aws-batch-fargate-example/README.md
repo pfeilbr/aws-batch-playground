@@ -19,7 +19,7 @@ aws batch submit-job \
 aws logs tail "/aws/batch/job"
 
 # delete stack
-sam delete --no-prompt
+sam delete --no-prompts
 ```
 
 ## Screenshots
